@@ -31,7 +31,6 @@
             flowLayoutPanel1 = new FlowLayoutPanel();
             checkedListBox1 = new CheckedListBox();
             btnExit = new Button();
-            button2 = new Button();
             btnSave = new Button();
             SuspendLayout();
             // 
@@ -60,22 +59,13 @@
             btnExit.UseVisualStyleBackColor = true;
             btnExit.Click += btnExit_Click;
             // 
-            // button2
-            // 
-            button2.Location = new Point(208, 811);
-            button2.Name = "button2";
-            button2.Size = new Size(157, 29);
-            button2.TabIndex = 4;
-            button2.Text = "button2";
-            button2.UseVisualStyleBackColor = true;
-            // 
             // btnSave
             // 
             btnSave.Location = new Point(407, 811);
             btnSave.Name = "btnSave";
             btnSave.Size = new Size(200, 29);
             btnSave.TabIndex = 5;
-            btnSave.Text = "button3";
+            btnSave.Text = "Сохранить";
             btnSave.UseVisualStyleBackColor = true;
             btnSave.Click += btnSave_Click;
             // 
@@ -85,7 +75,6 @@
             AutoScaleMode = AutoScaleMode.Font;
             ClientSize = new Size(1218, 852);
             Controls.Add(btnSave);
-            Controls.Add(button2);
             Controls.Add(btnExit);
             Controls.Add(checkedListBox1);
             Controls.Add(flowLayoutPanel1);
@@ -99,7 +88,6 @@
         private FlowLayoutPanel flowLayoutPanel1;
         private CheckedListBox checkedListBox1;
         private Button btnExit;
-        private Button button2;
         private Button btnSave;
     }
 }

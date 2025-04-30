@@ -8,12 +8,24 @@ using Microsoft.Data.SqlClient;
 
 namespace Case1._1
 {
-    public interface IMySqlConnection 
+    public interface IMySqlConnection
     {
-        public void SaveSelectedValueWarehouseToDatabase(float ore, float nikel, float chrome, float marganec, string timeFurnace, string timeConverter, string timeRollingMachine);
-        public void SaveSelectedValueOrderMarkAToDatabase(float ore, float nikel, float chrome, float marganec, string timeFurnace, string timeConverter, string timeRollingMachine, float price);
-        public void SaveSelectedValueOrderMarkBToDatabase(float ore, float nikel, float chrome, float marganec, string timeFurnace, string timeConverter, string timeRollingMachine, float price);
-        public void SaveSelectedValueOrderMarkCToDatabase(float ore, float nikel, float chrome, float marganec, string timeFurnace, string timeConverter, string timeRollingMachine,float price);
+        public void SaveSelectedValueWarehouseToDatabase(float ore, float nikel, float chrome, float marganec,
+            float timeFurnace, float timeConverter, float timeRollingMachine);
+
+        public void SaveSelectedValueOrderMarkAToDatabase(float ore, float nikel, float chrome, float marganec,
+            float timeFurnace, float timeConverter, float timeRollingMachine, float price);
+
+        public void SaveSelectedValueOrderMarkBToDatabase(float ore, float nikel, float chrome, float marganec,
+            float timeFurnace, float timeConverter, float timeRollingMachine, float price);
+
+        public void SaveSelectedValueOrderMarkCToDatabase(float ore, float nikel, float chrome, float marganec,
+            float timeFurnace, float timeConverter, float timeRollingMachine, float price);
+
+        public (double Ore, double Nickel, double Chrome, double Manganese) GetLastUserResources(SqlTransaction transaction = null);
+        
+        public void DeductResourcesFromWarehouse(float ore, float nikel, float chrome, float marganec, SqlTransaction transaction = null);
+        
     }
 
     public class DatabaseConnection
@@ -25,7 +37,7 @@ namespace Case1._1
         // Убедитесь, что конструктор недоступен для внешних классов
         private DatabaseConnection()
         {
-            string connectionString = "Data Source=(LocalDB)\\MSSQLLocalDB;AttachDbFilename=C:\\Users\\User\\source\\repos\\Case1FactoryK\\Case1.1\\Database1.mdf;Integrated Security=True"; // Замените на вашу строку подключения
+            string connectionString = "Data Source=(LocalDB)\\MSSQLLocalDB;AttachDbFilename=C:\\Users\\Кирилл\\Source\\Repos\\ConsoleAppCase2\\Case1.1\\Database1.mdf;Integrated Security=True"; // Замените на вашу строку подключения
             _connection = new SqlConnection(connectionString);
         }
 
@@ -72,32 +84,12 @@ namespace Case1._1
     {
         private readonly DatabaseConnection dbConnection = DatabaseConnection.Instance;
 
-        public void SaveSelectedValueWarehouseToDatabase(float ore, float nikel, float chrome, float marganec,
-            string timeFurnace, string timeConverter, string timeRollingMachine)
+        public (double Ore, double Nickel, double Chrome, double Manganese) GetLastUserResources(SqlTransaction transaction = null)
         {
             using var command = new SqlCommand(
-                "INSERT INTO Warehouse(Ore, Nikel, Chrome, Marganec, TimeFurnace, TimeConverter, TimeRollingMachine) " +
-                "VALUES (@Ore, @Nikel, @Chrome, @Marganec, @TimeFurnace, @TimeConverter, @TimeRollingMachine)",
-                dbConnection.Connection);
-
-            command.Parameters.AddWithValue("@Ore", ore);
-            command.Parameters.AddWithValue("@Nikel", nikel);
-            command.Parameters.AddWithValue("@Chrome", chrome);
-            command.Parameters.AddWithValue("@Marganec", marganec);
-            command.Parameters.AddWithValue("@TimeFurnace", timeFurnace);
-            command.Parameters.AddWithValue("@TimeConverter", timeConverter);
-            command.Parameters.AddWithValue("@TimeRollingMachine", timeRollingMachine);
-
-            command.ExecuteNonQuery();
-        }
-
-        public (double Ore, double Nickel, double Chrome, double Manganese) GetTotalResources()
-        {
-            using var command = new SqlCommand(
-                "SELECT SUM(Ore) AS TotalOre, SUM(Nikel) AS TotalNickel, " +
-                "SUM(Chrome) AS TotalChrome, SUM(Marganec) AS TotalManganese " +
-                "FROM Warehouse",
-                dbConnection.Connection);
+                "SELECT TOP 1 Ore, Nikel, Chrome, Marganec FROM Warehouse ORDER BY Id DESC",
+                dbConnection.Connection,
+                transaction);
 
             using var reader = command.ExecuteReader();
             if (reader.Read())
@@ -112,214 +104,229 @@ namespace Case1._1
             return (0, 0, 0, 0);
         }
 
-        public void SaveOrderWithResourcesCheck(Dictionary<string, int> orderQuantities)
+        public (float TimeFurnace, float TimeConverter, float TimeRollingMachine) GetAvailableTime(SqlTransaction transaction = null)
         {
-            if (!CheckResourcesForOrder(orderQuantities))
-            {
-                throw new Exception("Недостаточно ресурсов на складе для выполнения заказа");
-            }
-
-            var (totalOreNeeded, totalNickelNeeded, totalChromeNeeded, totalManganeseNeeded) = CalculateResourcesNeeded(orderQuantities);
-
-            foreach (var order in orderQuantities)
-            {
-                SaveOrder(order.Key, order.Value);
-            }
-
-            DeductResources(totalOreNeeded, totalNickelNeeded, totalChromeNeeded, totalManganeseNeeded);
-        }
-
-        private bool CheckResourcesForOrder(Dictionary<string, int> orderQuantities)
-        {
-            var resources = GetTotalResources();
-            var needed = CalculateResourcesNeeded(orderQuantities);
-
-            return resources.Ore >= needed.OreNeeded &&
-                   resources.Nickel >= needed.NickelNeeded &&
-                   resources.Chrome >= needed.ChromeNeeded &&
-                   resources.Manganese >= needed.ManganeseNeeded;
-        }
-
-        private (double OreNeeded, double NickelNeeded, double ChromeNeeded, double ManganeseNeeded)
-            CalculateResourcesNeeded(Dictionary<string, int> orderQuantities)
-        {
-            double ore = 0, nickel = 0, chrome = 0, manganese = 0;
-
-            foreach (var order in orderQuantities)
-            {
-                var grade = GetGradeParameters(order.Key);
-                int quantity = order.Value;
-
-                ore += grade.OrePerTon * quantity;
-                nickel += grade.NickelPerTon * quantity;
-                chrome += grade.ChromePerTon * quantity;
-                manganese += grade.ManganesePerTon * quantity;
-            }
-
-            return (ore, nickel, chrome, manganese);
-        }
-
-        private void SaveOrder(string gradeName, int quantity)
-        {
-            var grade = GetGradeParameters(gradeName);
-            string tableName = gradeName switch
-            {
-                "Марка A" => "MakeMarkA",
-                "Марка B" => "MakeMarkB",
-                "Марка C" => "MakeMarkC",
-                _ => throw new ArgumentException("Неизвестная марка стали")
-            };
-
             using var command = new SqlCommand(
-                $"INSERT INTO {tableName}(Ore, Nikel, Chrome, Marganec, TimeFurnace, TimeConverter, TimeRollingMachine) " +
-                "VALUES (@Ore, @Nikel, @Chrome, @Marganec, @TimeFurnace, @TimeConverter, @TimeRollingMachine)",
-                dbConnection.Connection);
+                "SELECT TOP 1 TimeFurnace, TimeConverter, TimeRollingMachine FROM Warehouse ORDER BY Id DESC",
+                dbConnection.Connection,
+                transaction);
 
-            command.Parameters.AddWithValue("@Ore", grade.OrePerTon * quantity);
-            command.Parameters.AddWithValue("@Nikel", grade.NickelPerTon * quantity);
-            command.Parameters.AddWithValue("@Chrome", grade.ChromePerTon * quantity);
-            command.Parameters.AddWithValue("@Marganec", grade.ManganesePerTon * quantity);
-            command.Parameters.AddWithValue("@TimeFurnace", (grade.FurnaceTimePerTon * quantity).ToString());
-            command.Parameters.AddWithValue("@TimeConverter", (grade.ConverterTimePerTon * quantity).ToString());
-            command.Parameters.AddWithValue("@TimeRollingMachine", (grade.RollingMachineTimePerTon * quantity).ToString());
-
-            command.ExecuteNonQuery();
-        }
-
-        private void DeductResources(double ore, double nickel, double chrome, double manganese)
-        {
-            SaveSelectedValueWarehouseToDatabase(
-                -(int)Math.Ceiling(ore),
-                -(int)Math.Ceiling(nickel),
-                -(int)Math.Ceiling(chrome),
-                -(int)Math.Ceiling(manganese),
-                "00:00:00", "00:00:00", "00:00:00");
-        }
-
-        private SteelGradeParameters GetGradeParameters(string gradeName)
-        {
-            return gradeName switch
+            using var reader = command.ExecuteReader();
+            if (reader.Read())
             {
-                "Марка A" => SteelGrades.GradeA,
-                "Марка B" => SteelGrades.GradeB,
-                "Марка C" => SteelGrades.GradeC,
-                _ => throw new ArgumentException("Неизвестная марка стали")
-            };
+                return (
+                    (float)Convert.ToDouble(reader["TimeFurnace"]),
+                    (float)Convert.ToDouble(reader["TimeConverter"]),
+                    (float)Convert.ToDouble(reader["TimeRollingMachine"])
+                );
+            }
+            return (0, 0, 0);
         }
 
-        private bool CheckResourcesAvailability(float ore, float nikel, float chrome, float marganec)
+        public (bool IsEnough, string Message) CheckResourcesAndTime(
+            float ore, float nikel, float chrome, float marganec,
+            float timeFurnace, float timeConverter, float timeRollingMachine,
+            SqlTransaction transaction = null)
         {
-            var resources = GetTotalResources();
-            return resources.Ore >= ore &&
-                   resources.Nickel >= nikel &&
-                   resources.Chrome >= chrome &&
-                   resources.Manganese >= marganec;
+            var errorMessage = new StringBuilder();
+            bool resourcesEnough = true;
+            bool timeEnough = true;
+
+            // Проверка ресурсов
+            var resources = GetLastUserResources(transaction);
+            if (resources.Ore < ore)
+            {
+                errorMessage.AppendLine($"- Руда: не хватает {ore - resources.Ore:0.##} т (есть {resources.Ore:0.##} т)");
+                resourcesEnough = false;
+            }
+            if (resources.Nickel < nikel)
+            {
+                errorMessage.AppendLine($"- Никель: не хватает {nikel - resources.Nickel:0.##} кг (есть {resources.Nickel:0.##} кг)");
+                resourcesEnough = false;
+            }
+            if (resources.Chrome < chrome)
+            {
+                errorMessage.AppendLine($"- Хром: не хватает {chrome - resources.Chrome:0.##} кг (есть {resources.Chrome:0.##} кг)");
+                resourcesEnough = false;
+            }
+            if (resources.Manganese < marganec)
+            {
+                errorMessage.AppendLine($"- Марганец: не хватает {marganec - resources.Manganese:0.##} кг (есть {resources.Manganese:0.##} кг)");
+                resourcesEnough = false;
+            }
+
+            // Проверка времени
+            var availableTime = GetAvailableTime(transaction);
+            if (timeFurnace > availableTime.TimeFurnace)
+            {
+                errorMessage.AppendLine($"- Печь: не хватает {timeFurnace - availableTime.TimeFurnace:0.##} ч (есть {availableTime.TimeFurnace:0.##} ч)");
+                timeEnough = false;
+            }
+            if (timeConverter > availableTime.TimeConverter)
+            {
+                errorMessage.AppendLine($"- Конвертер: не хватает {timeConverter - availableTime.TimeConverter:0.##} ч (есть {availableTime.TimeConverter:0.##} ч)");
+                timeEnough = false;
+            }
+            if (timeRollingMachine > availableTime.TimeRollingMachine)
+            {
+                errorMessage.AppendLine($"- Прокатный стан: не хватает {timeRollingMachine - availableTime.TimeRollingMachine:0.##} ч (есть {availableTime.TimeRollingMachine:0.##} ч)");
+                timeEnough = false;
+            }
+
+            string message = "";
+            if (!resourcesEnough || !timeEnough)
+            {
+                message = "Недостаточно ресурсов или времени:\n" + errorMessage.ToString();
+            }
+
+            return (resourcesEnough && timeEnough, message);
+        }
+
+        public void SaveSelectedValueWarehouseToDatabase(float ore, float nikel, float chrome, float marganec,
+            float timeFurnace, float timeConverter, float timeRollingMachine)
+        {
+            using var transaction = dbConnection.Connection.BeginTransaction();
+            try
+            {
+                using var command = new SqlCommand(
+                    "INSERT INTO Warehouse (Ore, Nikel, Chrome, Marganec, TimeFurnace, TimeConverter, TimeRollingMachine) " +
+                    "VALUES (@Ore, @Nikel, @Chrome, @Marganec, @TimeFurnace, @TimeConverter, @TimeRollingMachine)",
+                    dbConnection.Connection,
+                    transaction);
+
+                command.Parameters.AddWithValue("@Ore", ore);
+                command.Parameters.AddWithValue("@Nikel", nikel);
+                command.Parameters.AddWithValue("@Chrome", chrome);
+                command.Parameters.AddWithValue("@Marganec", marganec);
+                command.Parameters.AddWithValue("@TimeFurnace", timeFurnace);
+                command.Parameters.AddWithValue("@TimeConverter", timeConverter);
+                command.Parameters.AddWithValue("@TimeRollingMachine", timeRollingMachine);
+
+                command.ExecuteNonQuery();
+                transaction.Commit();
+            }
+            catch
+            {
+                transaction.Rollback();
+                throw;
+            }
         }
 
         public void SaveSelectedValueOrderMarkAToDatabase(float ore, float nikel, float chrome, float marganec,
-            string timeFurnace, string timeConverter, string timeRollingMachine, float price)
+            float timeFurnace, float timeConverter, float timeRollingMachine, float price)
         {
-            // Получаем текущие ресурсы
-            var resources = GetTotalResources();
-
-            // Проверяем, хватает ли ресурсов
-            if (resources.Ore < ore || resources.Nickel < nikel ||
-                resources.Chrome < chrome || resources.Manganese < marganec)
-            {
-                throw new Exception($"Недостаточно ресурсов на складе для создания Марки A. Требуется: {ore} руды, {nikel} никеля, {chrome} хрома, {marganec} марганца. На складе: {resources.Ore} руды, {resources.Nickel} никеля, {resources.Chrome} хрома, {resources.Manganese} марганца.");
-            }
-
-            // Сохраняем заказ
-            using var command = new SqlCommand(
-                "INSERT INTO MakeMarkA(OreMarkA, NikelMarkA, ChromeMarkA, MarganecMarkA, " +
-                "TimeFurnaceMarkA, TimeConverterMarkA, TimeRollingMachineA, PriceA) " +
-                "VALUES (@OreMarkA, @NikelMarkA, @ChromeMarkA, @MarganecMarkA, @TimeFurnaceMarkA, @TimeConverterMarkA, @TimeRollingMachineA,@PriceA)",
-                dbConnection.Connection);
-
-            // Исправленные имена параметров, соответствующие именам столбцов в таблице
-            command.Parameters.AddWithValue("@OreMarkA", ore);
-            command.Parameters.AddWithValue("@NikelMarkA", nikel);
-            command.Parameters.AddWithValue("@ChromeMarkA", chrome);
-            command.Parameters.AddWithValue("@MarganecMarkA", marganec);
-            command.Parameters.AddWithValue("@TimeFurnaceMarkA", timeFurnace);
-            command.Parameters.AddWithValue("@TimeConverterMarkA", timeConverter);
-            command.Parameters.AddWithValue("@TimeRollingMachineA", timeRollingMachine);
-            command.Parameters.AddWithValue("@PriceA", price);
-
-            command.ExecuteNonQuery();
-
-            // Списание ресурсов
-            SaveSelectedValueWarehouseToDatabase(
-                -ore, -nikel, -chrome, -marganec,
-                "00:00:00", "00:00:00", "00:00:00");
+            ProcessOrder("MakeMarkA", ore, nikel, chrome, marganec,
+                timeFurnace, timeConverter, timeRollingMachine, price,
+                "OreMarkA", "NikelMarkA", "ChromeMarkA", "MarganecMarkA",
+                "TimeFurnaceMarkA", "TimeConverterMarkA", "TimeRollingMachineA", "PriceA");
         }
 
         public void SaveSelectedValueOrderMarkBToDatabase(float ore, float nikel, float chrome, float marganec,
-            string timeFurnace, string timeConverter, string timeRollingMachine, float price)
+            float timeFurnace, float timeConverter, float timeRollingMachine, float price)
         {
-            var resources = GetTotalResources();
-
-            if (resources.Ore < ore || resources.Nickel < nikel ||
-                resources.Chrome < chrome || resources.Manganese < marganec)
-            {
-                throw new Exception($"Недостаточно ресурсов на складе для создания Марки B. Требуется: {ore} руды, {nikel} никеля, {chrome} хрома, {marganec} марганца. На складе: {resources.Ore} руды, {resources.Nickel} никеля, {resources.Chrome} хрома, {resources.Manganese} марганца.");
-            }
-
-            using var command = new SqlCommand(
-                "INSERT INTO MakeMarkB(OreMarkB, NikelMarkB, ChromeMarkB, MarganecMarkB, " +
-                "TimeFurnaceMarkB, TimeConverterMarkB, TimeRollingMachineB, PriceB) " +
-                "VALUES (@OreMarkB, @NikelMarkB, @ChromeMarkB, @MarganecMarkB, @TimeFurnaceMarkB, @TimeConverterMarkB, @TimeRollingMachineB,@PriceB)",
-                dbConnection.Connection);
-
-            command.Parameters.AddWithValue("@OreMarkB", ore);
-            command.Parameters.AddWithValue("@NikelMarkB", nikel);
-            command.Parameters.AddWithValue("@ChromeMarkB", chrome);
-            command.Parameters.AddWithValue("@MarganecMarkB", marganec);
-            command.Parameters.AddWithValue("@TimeFurnaceMarkB", timeFurnace);
-            command.Parameters.AddWithValue("@TimeConverterMarkB", timeConverter);
-            command.Parameters.AddWithValue("@TimeRollingMachineB", timeRollingMachine);
-            command.Parameters.AddWithValue("@PriceB", price);
-
-            command.ExecuteNonQuery();
-
-            SaveSelectedValueWarehouseToDatabase(
-                -ore, -nikel, -chrome, -marganec,
-                "00:00:00", "00:00:00", "00:00:00");
+            ProcessOrder("MakeMarkB", ore, nikel, chrome, marganec,
+                timeFurnace, timeConverter, timeRollingMachine, price,
+                "OreMarkB", "NikelMarkB", "ChromeMarkB", "MarganecMarkB",
+                "TimeFurnaceMarkB", "TimeConverterMarkB", "TimeRollingMachineB", "PriceB");
         }
 
         public void SaveSelectedValueOrderMarkCToDatabase(float ore, float nikel, float chrome, float marganec,
-            string timeFurnace, string timeConverter, string timeRollingMachine, float price)
+            float timeFurnace, float timeConverter, float timeRollingMachine, float price)
         {
-            var resources = GetTotalResources();
+            ProcessOrder("MakeMarkC", ore, nikel, chrome, marganec,
+                timeFurnace, timeConverter, timeRollingMachine, price,
+                "OreMarkC", "NikelMarkC", "ChromeMarkC", "MarganecMarkC",
+                "TimeFurnaceMarkC", "TimeConverterMarkC", "TimeRollingMachineC", "PriceC");
+        }
 
-            if (resources.Ore < ore || resources.Nickel < nikel ||
-                resources.Chrome < chrome || resources.Manganese < marganec)
+        private void ProcessOrder(string tableName, float ore, float nikel, float chrome, float marganec,
+            float timeFurnace, float timeConverter, float timeRollingMachine, float price,
+            string oreColumn, string nikelColumn, string chromeColumn, string marganecColumn,
+            string timeFurnaceColumn, string timeConverterColumn, string timeRollingColumn, string priceColumn)
+        {
+            using (var transaction = dbConnection.Connection.BeginTransaction())
             {
-                throw new Exception($"Недостаточно ресурсов на складе для создания Марки C. Требуется: {ore} руды, {nikel} никеля, {chrome} хрома, {marganec} марганца. На складе: {resources.Ore} руды, {resources.Nickel} никеля, {resources.Chrome} хрома, {resources.Manganese} марганца.");
+                try
+                {
+                    // Проверка ресурсов и времени с детализацией
+                    var check = CheckResourcesAndTime(ore, nikel, chrome, marganec,
+                        timeFurnace, timeConverter, timeRollingMachine, transaction);
+
+                    if (!check.IsEnough)
+                    {
+                        throw new Exception(check.Message);
+                    }
+
+                    // Добавление заказа
+                    using (var insertCommand = new SqlCommand(
+                        $"INSERT INTO {tableName} ({oreColumn}, {nikelColumn}, {chromeColumn}, {marganecColumn}, " +
+                        $"{timeFurnaceColumn}, {timeConverterColumn}, {timeRollingColumn}, {priceColumn}) " +
+                        $"VALUES (@Ore, @Nikel, @Chrome, @Marganec, @TimeFurnace, @TimeConverter, @TimeRolling, @Price)",
+                        dbConnection.Connection,
+                        transaction))
+                    {
+                        insertCommand.Parameters.AddWithValue("@Ore", ore);
+                        insertCommand.Parameters.AddWithValue("@Nikel", nikel);
+                        insertCommand.Parameters.AddWithValue("@Chrome", chrome);
+                        insertCommand.Parameters.AddWithValue("@Marganec", marganec);
+                        insertCommand.Parameters.AddWithValue("@TimeFurnace", timeFurnace);
+                        insertCommand.Parameters.AddWithValue("@TimeConverter", timeConverter);
+                        insertCommand.Parameters.AddWithValue("@TimeRolling", timeRollingMachine);
+                        insertCommand.Parameters.AddWithValue("@Price", price);
+
+                        insertCommand.ExecuteNonQuery();
+                    }
+
+                    // Списание ресурсов
+                    DeductResourcesFromWarehouse(-ore, -nikel, -chrome, -marganec, transaction);
+
+                    // Списание времени
+                    using (var timeCommand = new SqlCommand(
+                        "UPDATE Warehouse SET " +
+                        "TimeFurnace = TimeFurnace - @FurnaceTime, " +
+                        "TimeConverter = TimeConverter - @ConverterTime, " +
+                        "TimeRollingMachine = TimeRollingMachine - @RollingTime " +
+                        "WHERE Id = (SELECT TOP 1 Id FROM Warehouse ORDER BY Id DESC)",
+                        dbConnection.Connection,
+                        transaction))
+                    {
+                        timeCommand.Parameters.AddWithValue("@FurnaceTime", timeFurnace);
+                        timeCommand.Parameters.AddWithValue("@ConverterTime", timeConverter);
+                        timeCommand.Parameters.AddWithValue("@RollingTime", timeRollingMachine);
+                        timeCommand.ExecuteNonQuery();
+                    }
+
+                    transaction.Commit();
+                }
+                catch (Exception ex)
+                {
+                    transaction.Rollback();
+                    throw new Exception($"Ошибка при создании заказа {tableName}:\n{ex.Message}");
+                }
             }
+        }
 
+        public void DeductResourcesFromWarehouse(float ore, float nikel, float chrome, float marganec,
+            SqlTransaction transaction = null)
+        {
             using var command = new SqlCommand(
-                "INSERT INTO MakeMarkC(OreMarkC, NikelMarkC, ChromeMarkC, MarganecMarkC, " +
-                "TimeFurnaceMarkC, TimeConverterMarkC, TimeRollingMachineC, PriceC) " +
-                "VALUES (@OreMarkC, @NikelMarkC, @ChromeMarkC, @MarganecMarkC, @TimeFurnaceMarkC, @TimeConverterMarkC, @TimeRollingMachineC,@PriceC)",
-                dbConnection.Connection);
+                "UPDATE Warehouse SET " +
+                "Ore = Ore + @Ore, " +
+                "Nikel = Nikel + @Nikel, " +
+                "Chrome = Chrome + @Chrome, " +
+                "Marganec = Marganec + @Marganec " +
+                "WHERE Id = (SELECT TOP 1 Id FROM Warehouse ORDER BY Id DESC)",
+                dbConnection.Connection,
+                transaction);
 
-            command.Parameters.AddWithValue("@OreMarkC", ore);
-            command.Parameters.AddWithValue("@NikelMarkC", nikel);
-            command.Parameters.AddWithValue("@ChromeMarkC", chrome);
-            command.Parameters.AddWithValue("@MarganecMarkC", marganec);
-            command.Parameters.AddWithValue("@TimeFurnaceMarkC", timeFurnace);
-            command.Parameters.AddWithValue("@TimeConverterMarkC", timeConverter);
-            command.Parameters.AddWithValue("@TimeRollingMachineC", timeRollingMachine);
-            command.Parameters.AddWithValue("@PriceC", price);
+            command.Parameters.AddWithValue("@Ore", ore);
+            command.Parameters.AddWithValue("@Nikel", nikel);
+            command.Parameters.AddWithValue("@Chrome", chrome);
+            command.Parameters.AddWithValue("@Marganec", marganec);
 
             command.ExecuteNonQuery();
-
-            SaveSelectedValueWarehouseToDatabase(
-                -ore, -nikel, -chrome, -marganec,
-                "00:00:00", "00:00:00", "00:00:00");
         }
-        
     }
 }
+
 

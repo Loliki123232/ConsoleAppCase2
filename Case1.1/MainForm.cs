@@ -21,7 +21,8 @@ namespace Case1._1
 
         private void btnQueue_Click(object sender, EventArgs e)
         {
-
+            QueueForm queueForm = new QueueForm();
+            queueForm.Show();
         }
     }
 }

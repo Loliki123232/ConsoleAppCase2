@@ -41,58 +41,58 @@
             // 
             // txtOre
             // 
-            txtOre.Location = new Point(216, 107);
+            txtOre.Location = new Point(9, 23);
             txtOre.Margin = new Padding(3, 4, 3, 4);
             txtOre.Name = "txtOre";
-            txtOre.Size = new Size(199, 27);
+            txtOre.Size = new Size(867, 27);
             txtOre.TabIndex = 0;
             // 
             // txtNikel
             // 
-            txtNikel.Location = new Point(424, 107);
+            txtNikel.Location = new Point(9, 58);
             txtNikel.Margin = new Padding(3, 4, 3, 4);
             txtNikel.Name = "txtNikel";
-            txtNikel.Size = new Size(199, 27);
+            txtNikel.Size = new Size(867, 27);
             txtNikel.TabIndex = 0;
             // 
             // txtMarganec
             // 
-            txtMarganec.Location = new Point(12, 233);
+            txtMarganec.Location = new Point(9, 128);
             txtMarganec.Margin = new Padding(3, 4, 3, 4);
             txtMarganec.Name = "txtMarganec";
-            txtMarganec.Size = new Size(199, 27);
+            txtMarganec.Size = new Size(867, 27);
             txtMarganec.TabIndex = 0;
             // 
             // txtChrome
             // 
-            txtChrome.Location = new Point(630, 107);
+            txtChrome.Location = new Point(9, 93);
             txtChrome.Margin = new Padding(3, 4, 3, 4);
             txtChrome.Name = "txtChrome";
-            txtChrome.Size = new Size(199, 27);
+            txtChrome.Size = new Size(867, 27);
             txtChrome.TabIndex = 0;
             // 
             // txtTimeFurnace
             // 
-            txtTimeFurnace.Location = new Point(216, 233);
+            txtTimeFurnace.Location = new Point(9, 163);
             txtTimeFurnace.Margin = new Padding(3, 4, 3, 4);
             txtTimeFurnace.Name = "txtTimeFurnace";
-            txtTimeFurnace.Size = new Size(199, 27);
+            txtTimeFurnace.Size = new Size(867, 27);
             txtTimeFurnace.TabIndex = 0;
             // 
             // txtTimeConverter
             // 
-            txtTimeConverter.Location = new Point(425, 233);
+            txtTimeConverter.Location = new Point(9, 198);
             txtTimeConverter.Margin = new Padding(3, 4, 3, 4);
             txtTimeConverter.Name = "txtTimeConverter";
-            txtTimeConverter.Size = new Size(199, 27);
+            txtTimeConverter.Size = new Size(867, 27);
             txtTimeConverter.TabIndex = 0;
             // 
             // txtTimeRollingMachine
             // 
-            txtTimeRollingMachine.Location = new Point(630, 233);
+            txtTimeRollingMachine.Location = new Point(9, 233);
             txtTimeRollingMachine.Margin = new Padding(3, 4, 3, 4);
             txtTimeRollingMachine.Name = "txtTimeRollingMachine";
-            txtTimeRollingMachine.Size = new Size(203, 27);
+            txtTimeRollingMachine.Size = new Size(867, 27);
             txtTimeRollingMachine.TabIndex = 0;
             // 
             // btnExit
@@ -121,7 +121,7 @@
             // 
             AutoScaleDimensions = new SizeF(8F, 20F);
             AutoScaleMode = AutoScaleMode.Font;
-            ClientSize = new Size(914, 600);
+            ClientSize = new Size(904, 600);
             Controls.Add(btnSave);
             Controls.Add(btnExit);
             Controls.Add(txtTimeRollingMachine);
